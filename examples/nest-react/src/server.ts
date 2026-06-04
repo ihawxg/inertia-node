@@ -1,0 +1,297 @@
+import "reflect-metadata";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import {
+  Controller,
+  Get,
+  Module,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+  UseInterceptors,
+} from "@nestjs/common";
+import { NestFactory } from "@nestjs/core";
+import { ExpressAdapter } from "@nestjs/platform-express";
+import express, { type Response } from "express";
+import session from "express-session";
+import { createServer as createViteServer } from "vite";
+import {
+  defer,
+  Inertia,
+  inertiaAuth,
+  InertiaAuthGuard,
+  InertiaGuestGuard,
+  InertiaInterceptor,
+  InertiaModule,
+  merge,
+  nestExpressSessionAdapter,
+} from "@inertia-node/nest";
+import type { Request } from "express";
+
+interface User {
+  id: number;
+  email: string;
+  name: string;
+  password: string;
+}
+
+declare module "express-session" {
+  interface SessionData {
+    userId?: number;
+  }
+}
+
+const users: User[] = [
+  {
+    id: 1,
+    email: "ada@example.com",
+    name: "Ada Lovelace",
+    password: "password",
+  },
+];
+const activity = [
+  { id: 1, message: "Nest controller rendered dashboard" },
+  { id: 2, message: "Inertia interceptor sent the page" },
+];
+const devBootId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+const port = Number(process.env.PORT ?? 3000);
+
+class FileSessionStore extends session.Store {
+  constructor(private readonly filePath: string) {
+    super();
+    mkdirSync(dirname(filePath), { recursive: true });
+
+    if (!existsSync(filePath)) {
+      writeFileSync(filePath, "{}", "utf8");
+    }
+  }
+
+  get(
+    sessionId: string,
+    callback: (error: unknown, session?: session.SessionData | null) => void,
+  ): void {
+    callback(null, this.read()[sessionId] ?? null);
+  }
+
+  set(
+    sessionId: string,
+    value: session.SessionData,
+    callback?: (error?: unknown) => void,
+  ): void {
+    const sessions = this.read();
+    sessions[sessionId] = value;
+    this.write(sessions);
+    callback?.();
+  }
+
+  destroy(sessionId: string, callback?: (error?: unknown) => void): void {
+    const sessions = this.read();
+    delete sessions[sessionId];
+    this.write(sessions);
+    callback?.();
+  }
+
+  private read(): Record<string, session.SessionData> {
+    try {
+      return JSON.parse(readFileSync(this.filePath, "utf8")) as Record<
+        string,
+        session.SessionData
+      >;
+    } catch {
+      return {};
+    }
+  }
+
+  private write(sessions: Record<string, session.SessionData>): void {
+    writeFileSync(this.filePath, JSON.stringify(sessions, null, 2), "utf8");
+  }
+}
+
+@Controller()
+@UseInterceptors(InertiaInterceptor)
+class AppController {
+  @Get("/")
+  home(@Res() response: Response) {
+    response.redirect("/dashboard");
+  }
+
+  @Get("/login")
+  @UseGuards(InertiaGuestGuard)
+  @Inertia("Auth/Login")
+  login() {
+    return {};
+  }
+
+  @Post("/login")
+  async authenticate(@Req() request: Request) {
+    const email = String(request.body.email ?? "");
+    const password = String(request.body.password ?? "");
+    const errors: Record<string, string> = {};
+
+    if (!email) {
+      errors.email = "Email is required.";
+    }
+
+    if (!password) {
+      errors.password = "Password is required.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      return Inertia.backWithErrors(errors);
+    }
+
+    const user = users.find(
+      (candidate) =>
+        candidate.email === email && candidate.password === password,
+    );
+
+    if (!user) {
+      return Inertia.backWithErrors({
+        email: "These credentials do not match our records.",
+      });
+    }
+
+    await request.auth?.login(user);
+    await request.flash("success", "Welcome back");
+    return Inertia.redirect("/dashboard");
+  }
+
+  @Post("/logout")
+  async logout(@Req() request: Request) {
+    await request.auth?.logout();
+    return Inertia.redirect("/login");
+  }
+
+  @Get("/dashboard")
+  @UseGuards(InertiaAuthGuard)
+  @Inertia("Dashboard/Index")
+  dashboard() {
+    return {
+      stats: defer(() => ({
+        users: users.length,
+        activity: activity.length,
+      })),
+      activity: merge(() => ({ data: activity })).append("data"),
+    };
+  }
+}
+
+@Module({
+  imports: [
+    InertiaModule.forRoot({
+      version: "dev",
+      session: nestExpressSessionAdapter(),
+      auth: inertiaAuth({
+        getUser: (request) =>
+          users.find((user) => user.id === request.session.userId) ?? null,
+        login: (request, user: User) => {
+          request.session.userId = user.id;
+        },
+        logout: (request) => {
+          delete request.session.userId;
+        },
+        serializeUser: (user) => ({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        }),
+      }),
+      share: () => ({
+        appName: "Inertia Node Nest Adapter",
+      }),
+      rootView: ({ page }) => `<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Inertia Node Nest Adapter</title>
+    <script type="module">
+      import RefreshRuntime from "/@react-refresh";
+      RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+    </script>
+    <script type="module" src="/@vite/client"></script>
+    <script type="module" src="/src/app.tsx"></script>
+    <script>
+      (() => {
+        if (!("EventSource" in window)) return;
+        const key = "__inertia_node_nest_dev_boot_id__";
+        const events = new EventSource("/__inertia-node-dev/reload");
+        events.addEventListener("boot", (event) => {
+          const previous = sessionStorage.getItem(key);
+          sessionStorage.setItem(key, event.data);
+          if (previous && previous !== event.data) {
+            window.location.reload();
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body>
+    <script data-page="app" type="application/json">${page}</script>
+    <div id="app"></div>
+  </body>
+</html>`,
+    }),
+  ],
+  controllers: [AppController],
+})
+class AppModule {}
+
+function createFileSessionStore(): FileSessionStore {
+  return new FileSessionStore(
+    join(process.cwd(), ".tmp", "nest-example-sessions.json"),
+  );
+}
+
+const server = express();
+const sessionStore = createFileSessionStore();
+const vite = await createViteServer({
+  server: {
+    hmr: {
+      port: port + 10000,
+    },
+    middlewareMode: true,
+  },
+  appType: "custom",
+});
+
+server.get("/__inertia-node-dev/reload", (request, response) => {
+  response.setHeader("Content-Type", "text/event-stream");
+  response.setHeader("Cache-Control", "no-cache, no-transform");
+  response.setHeader("Connection", "keep-alive");
+  response.flushHeaders?.();
+  response.write(`event: boot\ndata: ${devBootId}\n\n`);
+
+  const keepAlive = setInterval(() => {
+    response.write(": keep-alive\n\n");
+  }, 15000);
+
+  request.on("close", () => {
+    clearInterval(keepAlive);
+  });
+});
+server.use(vite.middlewares);
+server.use(express.urlencoded({ extended: false }));
+server.use(express.json());
+server.use(
+  session({
+    secret: "inertia-node-nest-example",
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+  }),
+);
+
+const app = await NestFactory.create(AppModule, new ExpressAdapter(server), {
+  logger: ["error", "warn", "log"],
+});
+
+await app.init();
+
+server.listen(port, () => {
+  console.log(`Nest example running at http://localhost:${port}`);
+});

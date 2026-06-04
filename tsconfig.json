@@ -4,7 +4,9 @@
     "noEmit": true,
     "paths": {
       "@inertia-node/core": ["./packages/core/src/index.ts"],
-      "@inertia-node/express": ["./packages/express/src/index.ts"]
+      "@inertia-node/express": ["./packages/express/src/index.ts"],
+      "@inertia-node/nest": ["./packages/nest/src/index.ts"],
+      "@inertia-node/create": ["./packages/create/src/index.ts"]
     }
   },
   "include": [

@@ -8,12 +8,14 @@ This repository starts with:
 
 - `@inertia-node/core`: framework-agnostic Inertia v3 protocol helpers.
 - `@inertia-node/express`: Express middleware and response helpers.
+- `@inertia-node/nest`: NestJS module, interceptor, decorators, and guards for the Express platform.
 - `@inertia-node/ssr`: standalone SSR server for separate-process rendering.
 - `examples/express-react`: minimal Express + React + Vite example.
+- `examples/nest-react`: NestJS + React + Vite example with sessions and auth.
 
 ## Status
 
-Early MVP. The current goal is Laravel-like Inertia ergonomics for Node.js while keeping auth, database, and routing choices in application code. Fastify and NestJS adapters are planned next.
+Early MVP. The current goal is Laravel-like Inertia ergonomics for Node.js while keeping auth, database, and routing choices in application code. Express and NestJS on the Express platform are supported first; Fastify adapters are planned next.
 
 ## Install
 
@@ -95,6 +97,62 @@ app.post("/users", async (req, res) => {
 });
 ```
 
+## NestJS Usage
+
+```ts
+import {
+  Controller,
+  Get,
+  Module,
+  UseGuards,
+  UseInterceptors,
+} from "@nestjs/common";
+import {
+  defer,
+  Inertia,
+  inertiaAuth,
+  InertiaAuthGuard,
+  InertiaInterceptor,
+  InertiaModule,
+  merge,
+  nestExpressSessionAdapter,
+} from "@inertia-node/nest";
+
+@Controller()
+@UseInterceptors(InertiaInterceptor)
+class DashboardController {
+  @Get("/dashboard")
+  @UseGuards(InertiaAuthGuard)
+  @Inertia("Dashboard/Index")
+  index() {
+    return {
+      stats: defer(() => loadStats()),
+      activity: merge(() => loadActivity()).append("data"),
+    };
+  }
+}
+
+@Module({
+  imports: [
+    InertiaModule.forRoot({
+      version: "1",
+      session: nestExpressSessionAdapter(),
+      auth: inertiaAuth({
+        getUser: (req) => getUser(req.session.userId),
+        login: (req, user) => {
+          req.session.userId = user.id;
+        },
+        logout: (req) => {
+          delete req.session.userId;
+        },
+      }),
+    }),
+  ],
+  controllers: [DashboardController],
+})
+export class AppModule {}
+```
+
 ## SSR
 
 Create an SSR entry that exports a render function returning `{ head, body }`, then run:
@@ -123,6 +181,7 @@ pnpm install
 pnpm test
 pnpm build
 pnpm dev:example
+pnpm dev:example:nest
 ```
 
 ## Docs
@@ -145,3 +204,4 @@ Targets the Inertia v3 protocol and official `@inertiajs/*` client packages. His
 - SSR package: Node 22+
 - Express: `>=4.18 <6`
 - Express session: `>=1.17 <2`
+- NestJS: `>=10 <12` on the Express platform

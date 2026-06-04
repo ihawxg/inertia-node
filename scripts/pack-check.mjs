@@ -4,7 +4,13 @@ import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 
 const root = new URL("..", import.meta.url).pathname;
-const packages = ["packages/core", "packages/express", "packages/ssr"];
+const packages = [
+  "packages/core",
+  "packages/express",
+  "packages/nest",
+  "packages/ssr",
+  "packages/create",
+];
 const outDir = join(tmpdir(), "inertia-node-pack-check");
 const appDir = join(outDir, "consumer");
 
@@ -42,9 +48,15 @@ await writeFile(
       dependencies: {
         "@inertia-node/core": `file:${join(outDir, "inertia-node-core-0.1.0.tgz")}`,
         "@inertia-node/express": `file:${join(outDir, "inertia-node-express-0.1.0.tgz")}`,
+        "@inertia-node/nest": `file:${join(outDir, "inertia-node-nest-0.1.0.tgz")}`,
         "@inertia-node/ssr": `file:${join(outDir, "inertia-node-ssr-0.1.0.tgz")}`,
+        "@inertia-node/create": `file:${join(outDir, "inertia-node-create-0.1.0.tgz")}`,
+        "@nestjs/common": "^11.1.9",
+        "@nestjs/core": "^11.1.9",
         express: "^5.2.1",
         "express-session": "^1.18.2",
+        "reflect-metadata": "^0.2.2",
+        rxjs: "^7.8.2",
       },
       devDependencies: {
         "@types/express": "^5.0.6",
@@ -56,7 +68,9 @@ await writeFile(
         overrides: {
           "@inertia-node/core": `file:${join(outDir, "inertia-node-core-0.1.0.tgz")}`,
           "@inertia-node/express": `file:${join(outDir, "inertia-node-express-0.1.0.tgz")}`,
+          "@inertia-node/nest": `file:${join(outDir, "inertia-node-nest-0.1.0.tgz")}`,
           "@inertia-node/ssr": `file:${join(outDir, "inertia-node-ssr-0.1.0.tgz")}`,
+          "@inertia-node/create": `file:${join(outDir, "inertia-node-create-0.1.0.tgz")}`,
         },
       },
     },
@@ -87,14 +101,19 @@ await writeFile(
 import session from "express-session";
 import { createInertia, defer } from "@inertia-node/core";
 import { expressSessionAdapter, inertiaMiddleware } from "@inertia-node/express";
+import { Inertia, InertiaModule, nestExpressSessionAdapter } from "@inertia-node/nest";
 import { createSsrServer } from "@inertia-node/ssr";
+import { resolveCreateAppConfig } from "@inertia-node/create";
 
 const app = express();
 app.use(session({ secret: "secret", resave: false, saveUninitialized: false }));
 app.use(inertiaMiddleware({ session: expressSessionAdapter() }));
 app.get("/", (_req, res) => void res.inertia("Home", { stats: defer(() => ({ users: 1 })) }));
 await createInertia().render({ headers: {}, method: "GET", url: "/" }, "Home");
+InertiaModule.forRoot({ session: nestExpressSessionAdapter() });
+void Inertia.render("Home");
 void createSsrServer;
+void resolveCreateAppConfig({ name: "consumer", dryRun: true });
 `,
 );
 

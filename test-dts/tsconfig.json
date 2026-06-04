@@ -7,7 +7,9 @@
     "paths": {
       "@inertia-node/core": ["../packages/core/dist/index.d.ts"],
       "@inertia-node/express": ["../packages/express/dist/index.d.ts"],
-      "@inertia-node/ssr": ["../packages/ssr/dist/index.d.ts"]
+      "@inertia-node/nest": ["../packages/nest/dist/index.d.ts"],
+      "@inertia-node/ssr": ["../packages/ssr/dist/index.d.ts"],
+      "@inertia-node/create": ["../packages/create/dist/index.d.ts"]
     }
   },
   "include": ["./**/*.ts", "./**/*.tsx"]
