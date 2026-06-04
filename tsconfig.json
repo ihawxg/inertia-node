@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "paths": {
+      "@inertia-node/core": ["./packages/core/src/index.ts"],
+      "@inertia-node/express": ["./packages/express/src/index.ts"]
+    }
+  },
+  "include": [
+    "packages/**/*.ts",
+    "examples/**/*.ts",
+    "examples/**/*.tsx",
+    "eslint.config.js"
+  ]
+}

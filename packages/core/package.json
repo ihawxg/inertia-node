@@ -1,0 +1,43 @@
+{
+  "name": "@inertia-node/core",
+  "version": "0.1.0",
+  "description": "Framework-agnostic Inertia.js v3 protocol helpers for Node.js.",
+  "license": "MIT",
+  "author": "Inertia Node Adapter contributors",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/inertia-node/inertia-node-adapter.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/inertia-node/inertia-node-adapter#readme",
+  "bugs": {
+    "url": "https://github.com/inertia-node/inertia-node-adapter/issues"
+  },
+  "keywords": [
+    "inertia",
+    "inertiajs",
+    "node",
+    "typescript",
+    "protocol"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

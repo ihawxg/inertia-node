@@ -1,0 +1,49 @@
+{
+  "name": "@inertia-node/ssr",
+  "version": "0.1.0",
+  "description": "Standalone SSR server for Inertia Node adapters.",
+  "license": "MIT",
+  "author": "Inertia Node Adapter contributors",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/inertia-node/inertia-node-adapter.git",
+    "directory": "packages/ssr"
+  },
+  "homepage": "https://github.com/inertia-node/inertia-node-adapter#readme",
+  "bugs": {
+    "url": "https://github.com/inertia-node/inertia-node-adapter/issues"
+  },
+  "keywords": [
+    "inertia",
+    "inertiajs",
+    "ssr",
+    "node",
+    "typescript"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "inertia-node-ssr": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts src/cli.ts --format esm --dts --sourcemap",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@inertia-node/core": "workspace:*"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

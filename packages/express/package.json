@@ -1,0 +1,59 @@
+{
+  "name": "@inertia-node/express",
+  "version": "0.1.0",
+  "description": "Express adapter for Inertia.js on Node.js.",
+  "license": "MIT",
+  "author": "Inertia Node Adapter contributors",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/inertia-node/inertia-node-adapter.git",
+    "directory": "packages/express"
+  },
+  "homepage": "https://github.com/inertia-node/inertia-node-adapter#readme",
+  "bugs": {
+    "url": "https://github.com/inertia-node/inertia-node-adapter/issues"
+  },
+  "keywords": [
+    "inertia",
+    "inertiajs",
+    "express",
+    "node",
+    "react",
+    "typescript"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts --sourcemap",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@inertia-node/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "express": ">=4.18 <6",
+    "express-session": ">=1.17 <2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/express-session": "^1.18.2",
+    "@types/supertest": "^6.0.3",
+    "express": "^5.2.1",
+    "express-session": "^1.18.2",
+    "supertest": "^7.1.4"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

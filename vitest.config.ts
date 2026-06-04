@@ -1,0 +1,16 @@
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
+
+const root = fileURLToPath(new URL(".", import.meta.url));
+
+export default defineConfig({
+  test: {
+    include: ["packages/**/*.test.ts"],
+  },
+  resolve: {
+    alias: {
+      "@inertia-node/core": `${root}packages/core/src/index.ts`,
+      "@inertia-node/express": `${root}packages/express/src/index.ts`,
+    },
+  },
+});

@@ -1,0 +1,14 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "types": ["node", "vite/client"],
+    "paths": {
+      "@inertia-node/core": ["../packages/core/dist/index.d.ts"],
+      "@inertia-node/express": ["../packages/express/dist/index.d.ts"],
+      "@inertia-node/ssr": ["../packages/ssr/dist/index.d.ts"]
+    }
+  },
+  "include": ["./**/*.ts", "./**/*.tsx"]
+}
