@@ -1,0 +1,52 @@
+{
+  "name": "@inertia-node/create",
+  "version": "0.1.0",
+  "description": "Starter-kit generator for full-stack Inertia Node applications.",
+  "license": "MIT",
+  "author": "Inertia Node Adapter contributors",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/inertia-node/inertia-node-adapter.git",
+    "directory": "packages/create"
+  },
+  "homepage": "https://github.com/inertia-node/inertia-node-adapter#readme",
+  "bugs": {
+    "url": "https://github.com/inertia-node/inertia-node-adapter/issues"
+  },
+  "keywords": [
+    "inertia",
+    "inertiajs",
+    "node",
+    "express",
+    "react",
+    "starter",
+    "cli"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "bin": {
+    "create-inertia-node": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "rm -rf dist && tsup src/index.ts src/cli.ts --format esm --dts --sourcemap",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
+    "picocolors": "^1.1.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
