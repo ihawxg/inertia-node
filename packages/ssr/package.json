@@ -34,7 +34,8 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup src/index.ts src/cli.ts --format esm --dts --sourcemap",
