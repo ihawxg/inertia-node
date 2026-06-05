@@ -1,13 +1,27 @@
 # @inertia-node/nest
 
-NestJS adapter for Inertia.js on the Express adapter stack.
+NestJS adapter for Inertia.js on the Express platform.
 
-This package integrates Inertia with NestJS controllers and interceptors while keeping protocol logic in decorators, guards, and shared options.
+`@inertia-node/nest` integrates Inertia into Nest controllers through a module, interceptor, decorators, guards, and a session adapter. It keeps the same protocol behavior as the Express package while using Nest conventions for routing and dependency injection.
 
-## Install
+## Features
+
+- Provides `InertiaModule.forRoot(...)` for application-level setup.
+- Provides `InertiaInterceptor` for controller response conversion.
+- Provides `@Inertia(...)` and `@InertiaRenderOptions(...)` decorators.
+- Provides `InertiaAuthGuard` and `InertiaGuestGuard`.
+- Supports Express sessions through `nestExpressSessionAdapter()`.
+- Supports shared props, lazy props, deferred props, validation errors, flash data, redirects, and SSR.
+- Re-exports shared helpers from `@inertia-node/core`.
+
+## Installation
 
 ```sh
-pnpm add @inertia-node/nest @inertia-node/core
+pnpm add @inertia-node/nest @nestjs/common @nestjs/core @nestjs/platform-express express express-session
+```
+
+```sh
+npm install @inertia-node/nest @nestjs/common @nestjs/core @nestjs/platform-express express express-session
 ```
 
 Peer dependencies:
@@ -15,9 +29,10 @@ Peer dependencies:
 - `@nestjs/common >=10 <12`
 - `@nestjs/core >=10 <12`
 - `express >=4.18 <6`
-- `@nestjs/platform-express >=10 <12`
+- `reflect-metadata >=0.1 <1`
+- `rxjs >=7 <8`
 
-## Quick start
+## Quick Start
 
 ```ts
 import {
@@ -28,6 +43,7 @@ import {
   UseInterceptors,
 } from "@nestjs/common";
 import { NestFactory } from "@nestjs/core";
+import session from "express-session";
 import {
   Inertia,
   InertiaAuthGuard,
@@ -38,135 +54,202 @@ import {
   nestExpressSessionAdapter,
 } from "@inertia-node/nest";
 
-type User = { id: number; name: string; email: string };
+type User = {
+  id: number;
+  name: string;
+  email: string;
+};
 
-async function getUserById(id?: number): Promise<User | null> {
+async function findUser(id?: number): Promise<User | null> {
   if (!id) return null;
   return { id, name: "Ada Lovelace", email: "ada@example.com" };
+}
+
+@Controller()
+@UseInterceptors(InertiaInterceptor)
+class PageController {
+  @Get("/dashboard")
+  @UseGuards(InertiaAuthGuard)
+  @Inertia("Dashboard/Index")
+  dashboard() {
+    return {
+      stats: {
+        users: 42,
+        orders: 128,
+      },
+    };
+  }
+
+  @Get("/login")
+  @UseGuards(InertiaGuestGuard)
+  @Inertia("Auth/Login")
+  login() {
+    return {
+      title: "Sign in",
+    };
+  }
 }
 
 @Module({
   imports: [
     InertiaModule.forRoot({
       version: "1",
-      rootView: ({ page }) => `
-<!doctype html>
-<html>
-  <body><div id="app" data-page='${page}'></div></body>
-</html>`,
       session: nestExpressSessionAdapter(),
       auth: inertiaAuth({
-        getUser: (req) => getUserById(req.session?.userId),
+        getUser: (req) => findUser(req.session?.userId),
         login: (req, user: User) => {
           req.session!.userId = user.id;
         },
         logout: (req) => {
           delete req.session!.userId;
         },
-        serializeUser: (user) => ({ id: user.id, name: user.name }),
+        serializeUser: (user) => ({
+          id: user.id,
+          name: user.name,
+        }),
         redirectTo: "/login",
         home: "/dashboard",
       }),
       share: async ({ request }) => ({
         locale: request.headers["accept-language"] ?? "en",
       }),
+      rootView: ({ page }) => `
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <script type="module" src="/src/app.tsx"></script>
+  </head>
+  <body>
+    <div id="app" data-page='${page}'></div>
+  </body>
+</html>`,
     }),
   ],
-  controllers: [DashboardController],
+  controllers: [PageController],
 })
-export class AppModule {}
-
-@Controller()
-@UseInterceptors(InertiaInterceptor)
-export class DashboardController {
-  @Get("/dashboard")
-  @UseGuards(InertiaAuthGuard)
-  @Inertia("Dashboard/Index")
-  dashboard() {
-    return {
-      users: 42,
-      stats: ["orders", "visitors", "revenue"],
-    };
-  }
-
-  @Get("/guest")
-  @UseGuards(InertiaGuestGuard)
-  @Inertia("Auth/Login")
-  guestPage() {
-    return {
-      message: "Sign in to continue",
-    };
-  }
-}
+class AppModule {}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  // Attach your express-session middleware before serving any auth routes.
+
+  app.use(
+    session({
+      secret: process.env.SESSION_SECRET ?? "replace-me",
+      resave: false,
+      saveUninitialized: false,
+    }),
+  );
+
   await app.listen(3000);
 }
 
 void bootstrap();
 ```
 
+## Controller Patterns
+
+Use the decorator form when a route always renders one component:
+
+```ts
+@Get("/users")
+@Inertia("Users/Index")
+index() {
+  return {
+    users: await loadUsers(),
+  };
+}
+```
+
+Use explicit helper results when a route decides what to do at runtime:
+
+```ts
+@Post("/users")
+async store() {
+  const valid = false;
+
+  if (!valid) {
+    return Inertia.backWithErrors({
+      email: ["Email is required."],
+    });
+  }
+
+  return Inertia.redirect("/users");
+}
+```
+
+Supported explicit results:
+
+- `Inertia.render(component, props?, options?)`
+- `Inertia.redirect(location, status?)`
+- `Inertia.location(location)`
+- `Inertia.backWithErrors(errors, options?)`
+
 ## Module API
 
-`InertiaModule.forRoot(options)` accepts:
+`InertiaModule.forRoot(options)` accepts `NestInertiaOptions`.
 
-- `NestInertiaOptions`
-- `CreateInertiaOptions` from `@inertia-node/core`
-- `session` adapter factory
-- `auth` runtime contract from `inertiaAuth`
-- `share`, `version`, `rootView`, `ssr` options
+Common options:
 
-### Controller return contracts
+- `version`
+- `rootView`
+- `share`
+- `session`
+- `auth`
+- `ssr`
+- `withAllErrors`
 
-Controller methods can return either:
+The module can also receive a prebuilt `@inertia-node/core` instance through `instance`.
 
-- raw page props (short-form) and let `InertiaInterceptor` wrap to JSON/render mode
-- explicit controller result objects:
-  - `{ __inertiaNest: "redirect", location: string, status?: number }`
-  - `{ __inertiaNest: "location", location: string }`
-  - `{ __inertiaNest: "backWithErrors", errors: ValidationErrorInput, options?: ValidationErrorOptions }`
+## Auth and Session
 
-## Guards
+`nestExpressSessionAdapter()` maps an Express session object to the shared session contract. Register `express-session` before serving routes that depend on auth, flash, or validation errors.
 
-- `InertiaAuthGuard` redirects unauthenticated users to `auth.redirectTo` (defaults to `"/login"`).
-- `InertiaGuestGuard` redirects authenticated users to `auth.home` (defaults to `"/dashboard"`).
+`InertiaAuthGuard` redirects unauthenticated users to `auth.redirectTo`, defaulting to `"/login"`.
 
-## Middleware behavior
+`InertiaGuestGuard` redirects authenticated users to `auth.home`, defaulting to `"/dashboard"`.
 
-- `InertiaInterceptor`:
-  - Resolves return values to Inertia response bodies
-  - Adds partial-prop metadata and status support through `@InertiaRenderOptions`
-- `@Inertia()` decorator:
-  - Declares the target component name
-  - Can include per-handler render options via `@InertiaRenderOptions(...)`
+## SSR
+
+```ts
+InertiaModule.forRoot({
+  ssr: {
+    enabled: true,
+    url: "http://127.0.0.1:13714/render",
+    timeoutMs: 1500,
+  },
+});
+```
+
+Use `@inertia-node/ssr` to run the renderer process.
 
 ## Exports
 
 - `InertiaModule`
 - `InertiaInterceptor`
-- `InertiaAuthGuard`, `InertiaGuestGuard`
-- `Inertia`, `InertiaRenderOptions`
+- `InertiaAuthGuard`
+- `InertiaGuestGuard`
+- `Inertia`
+- `InertiaRenderOptions`
 - `nestExpressSessionAdapter`
 - `InertiaService`
-- Re-exported core helpers:
-  - `createInertia`, `always`, `defer`, `merge`, `optional`, `validationError`, `inertiaAuth`
-- Re-exported types:
-  - `NestInertiaOptions`, `NestInertiaAsyncOptions`, `NestRenderOptions`
-  - `InertiaBackWithErrorsResult`, `InertiaControllerResult`, `InertiaLocationResult`, `InertiaRedirectResult`, `InertiaRenderResult`
+- `NestInertiaOptions`
+- `NestInertiaAsyncOptions`
+- `NestRenderOptions`
+- `InertiaControllerResult`
+- Re-exported core helpers such as `always`, `defer`, `merge`, `optional`, `validationError`, `inertiaAuth`, and `createInertia`
 
-## Testing and validation
+## Troubleshooting
 
-- For manual validation flow use `validationError` and return `backWithErrors` from controller code.
-- Use `InertiaBackWithErrorsResult` when integrating server-side validator output directly.
+- If the controller response is returned as normal JSON, confirm `@UseInterceptors(InertiaInterceptor)` is applied.
+- If auth always fails, confirm `express-session` is registered and `session: nestExpressSessionAdapter()` is configured.
+- If validation redirects throw, confirm a session adapter is configured.
+- If full-page requests are missing app HTML, confirm `rootView` returns a document with `data-page='${page}'`.
 
-## Versioning
+## Documentation
 
-Requires Node.js `>=20`.
-
-## Related docs
-
-- https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/quickstart.md
-- https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/auth.md
-- https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/session-flash-validation.md
+- Repository: https://github.com/inertia-node/inertia-node-adapter
+- Quick start: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/quickstart.md
+- Auth: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/auth.md
+- Sessions, flash, and validation: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/session-flash-validation.md
+- SSR: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/ssr.md

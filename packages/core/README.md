@@ -1,30 +1,40 @@
 # @inertia-node/core
 
-Framework-agnostic protocol primitives for building Inertia.js adapters in Node.js.
+Framework-agnostic Inertia.js protocol helpers for Node.js.
 
-This package is the shared kernel used by all Inertia Node adapters.
-It provides:
+`@inertia-node/core` is the shared runtime used by the Inertia Node adapter packages. It does not depend on Express, NestJS, Fastify, React, Vue, or Svelte. Instead, it provides the protocol primitives that framework adapters use to turn server responses into valid Inertia pages.
 
-- Request detection for Inertia navigation
-- Root view / page serialization helpers
-- Lazy prop utilities
-- Shared flash/auth/session typing helpers
-- Protocol response builders for redirects, locations and SSR payloads
-- Small helpers for session, flash and validation error payloads
+Use this package directly when you are building a custom adapter, testing protocol behavior, or integrating Inertia into a framework that is not covered by the higher-level packages.
 
-If you are building an adapter (Express, Fastify, Nest), import from this package directly for protocol-level logic.
+## Features
 
-## Install
+- Detects Inertia requests and handles protocol headers.
+- Serializes page objects into safe HTML root views.
+- Builds protocol responses for page renders, redirects, external locations, and asset-version reloads.
+- Resolves shared props, lazy props, deferred props, merge metadata, and partial reloads.
+- Provides typed auth, session, flash, validation error, and SSR contracts.
+- Works with official Inertia client packages such as `@inertiajs/react`, `@inertiajs/vue3`, and `@inertiajs/svelte`.
+
+## Installation
 
 ```sh
 pnpm add @inertia-node/core
 ```
 
-## Quick example
+```sh
+npm install @inertia-node/core
+```
+
+## Quick Start
 
 ```ts
-import type { InertiaPage, InertiaRequest } from "@inertia-node/core";
-import { createInertia, defer, always, merge } from "@inertia-node/core";
+import {
+  always,
+  createInertia,
+  defer,
+  merge,
+  type InertiaRequest,
+} from "@inertia-node/core";
 
 const request: InertiaRequest = {
   headers: {
@@ -34,19 +44,17 @@ const request: InertiaRequest = {
   method: "GET",
   url: "/dashboard",
   originalUrl: "/dashboard",
-  protocol: "http",
-  host: "localhost:3000",
+  protocol: "https",
+  host: "example.com",
 };
 
-const app = createInertia({
+const inertia = createInertia({
   version: "1",
-  async share({ request }) {
-    return {
-      auth: {
-        user: request.raw?.user ?? null,
-      },
-    };
-  },
+  share: async ({ request }) => ({
+    auth: {
+      user: request.raw?.user ?? null,
+    },
+  }),
   ssr: {
     enabled: true,
     url: "http://127.0.0.1:13714/render",
@@ -54,110 +62,157 @@ const app = createInertia({
   },
 });
 
-const protocolPage: InertiaPage = {
-  component: "Dashboard/Index",
-  props: {},
-  url: request.url,
-  version: "1",
-  sharedProps: ["flash", "errors"],
-};
+const response = await inertia.render(request, "Dashboard/Index", {
+  profile: merge(() => loadProfile()),
+  metrics: always(() => loadMetrics()),
+  report: defer(() => loadReport()),
+});
 
-async function loadProfile(userId: number) {
-  return { id: userId, name: "Ada Lovelace" };
-}
-
-function resolveHeavyStats() {
-  return {
-    users: 12,
-    orders: 39,
-  };
-}
-
-function loadLazyData() {
-  return {
-    revenue: 1234,
-  };
-}
-
-const userId = 7;
-
-const pageProps = {
-  profile: merge(() => loadProfile(userId)),
-  stats: always(resolveHeavyStats()), // always resolved before serializing
-  lazy: defer(() => loadLazyData()), // deferred and loaded client-side
-};
-
-const protocolResponse = await app.render(
-  request,
-  protocolPage.component,
-  pageProps,
-);
-
-if (protocolResponse.status === 200) {
-  console.log("rendered protocol payload:", protocolResponse.body);
-}
+sendStatus(response.status);
+sendHeaders(response.headers);
+sendBody(response.body);
 ```
+
+Framework adapters are responsible for mapping their request/response objects to this protocol shape. For most applications, use one of the adapter packages instead:
+
+- `@inertia-node/express`
+- `@inertia-node/nest`
+- `@inertia-node/nest-fastify`
+
+## Core Concepts
+
+### `createInertia(options)`
+
+Creates a small protocol runtime.
+
+The returned instance exposes:
+
+- `render(request, component, props, options)`
+- `redirect(request, location, status?)`
+- `location(location)`
+
+`render` returns a `ProtocolResponse` instead of writing to a framework response directly. This keeps the core runtime portable across frameworks.
+
+### Request Mapping
+
+Adapters map incoming framework requests to `InertiaRequest`:
+
+```ts
+const inertiaRequest = {
+  headers: request.headers,
+  method: request.method,
+  url: request.url,
+  originalUrl: request.originalUrl,
+  protocol: request.protocol,
+  host: request.get("host"),
+  raw: request,
+};
+```
+
+The `raw` value is intentionally untyped. Adapters can use it to expose framework-specific objects to shared props, auth handlers, and custom SSR logic.
+
+### Shared Props
+
+Shared props are merged into every rendered page:
+
+```ts
+createInertia({
+  share: async ({ request }) => ({
+    flash: request.raw?.flash ?? {},
+    auth: {
+      user: request.raw?.user ?? null,
+    },
+  }),
+});
+```
+
+Page props override shared props when the same key exists.
+
+### Lazy and Deferred Props
+
+The package includes helpers that model Inertia prop behavior:
+
+```ts
+import { always, defer, merge, optional } from "@inertia-node/core";
+
+const props = {
+  user: always(() => loadCurrentUser()),
+  notifications: optional(() => loadNotifications()),
+  auditLog: defer(() => loadAuditLog()),
+  feed: merge(() => loadFeedPage()),
+};
+```
+
+Use these helpers when you need partial reloads, deferred data, or merge metadata to be represented in the serialized page object.
+
+## SSR
+
+The core runtime can call an SSR endpoint before rendering the root HTML document:
+
+```ts
+createInertia({
+  ssr: {
+    enabled: true,
+    url: "http://127.0.0.1:13714/render",
+    timeoutMs: 1500,
+    throwOnError: false,
+  },
+});
+```
+
+When SSR succeeds, the result is passed to the configured root view. When SSR fails and `throwOnError` is false, rendering falls back to the normal client-side shell.
 
 ## Exports
 
-`@inertia-node/core` exports:
+Runtime helpers:
 
 - `createInertia`
-- `getHeader`, `isInertiaRequest`, `parseCommaHeader`, `requestHeader`, `varyHeader`
-- `defaultRootView`, `escapeAttribute`, `serializePage`
+- `getHeader`
+- `isInertiaRequest`
+- `parseCommaHeader`
+- `requestHeader`
+- `varyHeader`
+- `defaultRootView`
+- `escapeAttribute`
+- `serializePage`
 - `inertiaAuth`
-- Lazy helpers: `always`, `defer`, `isInertiaPropWrapper`, `merge`, `optional`, `resolvePageProps`, `resolveProps`, `selectPartialProps`
-- Validation helper: `validationError`
+- `always`
+- `defer`
+- `merge`
+- `optional`
+- `resolvePageProps`
+- `resolveProps`
+- `selectPartialProps`
+- `validationError`
 
-### Types
+Common types:
 
-- `CreateInertiaOptions`, `InertiaInstance`, `InertiaPage`, `InertiaRequest`, `ProtocolResponse`
-- `InputProps`, `RenderOptions`, `RenderContext`, `SsrOptions`, `SsrResult`
-- `AuthConfig`, `AuthRuntime`
-- `SessionStore`, `ValidationError*`
-- `DeferredOptions`, `RootViewContext`, `InertiaPropWrapper`, `FlashData`, `PageProps`
-
-## Session and auth helpers
-
-- `validationError` shapes field bags and supports single-message or multi-message payload behavior.
-- `inertiaAuth` stores your framework-specific auth contract in a typed object that adapters can install onto request instances.
-
-## SSR integration
-
-Pass SSR settings in `CreateInertiaOptions` and `renderOptions` to delegate page rendering to a remote SSR server:
-
-- `ssr.enabled` true/false
-- `ssr.url` for your SSR endpoint
-- `ssr.timeoutMs` for request timeout
-- `ssr.fetch` to provide a custom fetch implementation (test/mocked environments)
-- `ssr.throwOnError` to fail fast when SSR is unavailable
-
-## Versioning and protocol expectations
-
-This package tracks the Inertia.js protocol contract and works with official `@inertiajs/*` clients.
-Keep your client and adapter versions aligned when upgrading protocol behavior.
+- `CreateInertiaOptions`
+- `InertiaInstance`
+- `InertiaRequest`
+- `InertiaPage`
+- `InputProps`
+- `RenderOptions`
+- `ProtocolResponse`
+- `SessionStore`
+- `AuthConfig`
+- `AuthRuntime`
+- `SsrOptions`
+- `SsrResult`
+- `ValidationErrorInput`
+- `ValidationErrorPayload`
 
 ## Compatibility
 
-- Node.js `>= 20`
-- TypeScript enabled projects strongly recommended
-- Works with `@inertiajs/react` / `@inertiajs/vue3` / `@inertiajs/svelte` clients when those frameworks follow the same protocol contract
+- Node.js `>=20`
+- ESM projects
+- TypeScript projects
+- Inertia.js v3-compatible clients
 
-## Development
-
-From repository root:
-
-```sh
-pnpm build -C packages/core
-pnpm -C packages/core test
-```
-
-## Links
+## Documentation
 
 - Repository: https://github.com/inertia-node/inertia-node-adapter
-- Related packages:
-  - `@inertia-node/express`
-  - `@inertia-node/nest`
-  - `@inertia-node/nest-fastify`
-  - `@inertia-node/ssr`
-- Docs: [docs/session-flash-validation.md](../../docs/session-flash-validation.md), [docs/auth.md](../../docs/auth.md)
+- Quick start: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/quickstart.md
+- Auth: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/auth.md
+- Sessions, flash, and validation: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/session-flash-validation.md
+- SSR: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/ssr.md

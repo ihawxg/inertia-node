@@ -1,41 +1,40 @@
 # @inertia-node/ssr
 
-Standalone SSR server for Inertia.js.
+Standalone SSR server for Inertia Node adapters.
 
-This package runs a tiny HTTP service that receives Inertia page payloads,
-loads a renderer module, and returns rendered SSR output.
+`@inertia-node/ssr` runs a small HTTP server that receives an Inertia page object, calls your SSR renderer, and returns rendered HTML fragments. It is designed to be used by `@inertia-node/express`, `@inertia-node/nest`, `@inertia-node/nest-fastify`, or any custom adapter built on `@inertia-node/core`.
 
-It is useful when server-side rendering is deployed in a separate process
-from your web API server.
+## Features
 
-## Install
+- Provides the `inertia-node-ssr` CLI.
+- Provides a programmatic SSR server API.
+- Loads a renderer from a local path or `file:` URL.
+- Accepts JSON page payloads through `POST /render`.
+- Supports renderer modules with either a default export or named `render` export.
+- Returns the shared `SsrResult` shape used by `@inertia-node/core`.
+
+## Installation
 
 ```sh
 pnpm add @inertia-node/ssr
 ```
 
-Node.js requirement: `>=22`
+```sh
+npm install @inertia-node/ssr
+```
 
-## API
+Node.js requirement:
 
-Exports:
+- `>=22`
 
-- `loadRenderer(entry: string): Promise<SsrRenderFunction>`
-- `createSsrServer(options: SsrServerOptions): Promise<http.Server>`
-- `listen(options: SsrServerOptions): Promise<void>`
-- `SsrServerOptions = { entry, host?, port? }`
-- `SsrRenderFunction = (page: InertiaPage) => SsrResult | Promise<SsrResult>`
+## Quick Start
 
-The server listens only on `POST /render` and expects a JSON body containing an `InertiaPage`.
-
-## Quick start
-
-### 1) Create an SSR entry
+### 1. Create an SSR Entry
 
 ```tsx
 // ssr-entry.tsx
-import { renderToString } from "react-dom/server";
 import { createInertiaApp } from "@inertiajs/react";
+import { renderToString } from "react-dom/server";
 
 export default async function render(page) {
   const result = await createInertiaApp({
@@ -57,50 +56,156 @@ export default async function render(page) {
 }
 ```
 
-### 2) Run server process
+### 2. Build the SSR Entry
+
+Use your normal app build tool to produce a server-renderable ESM file:
+
+```sh
+pnpm build
+```
+
+The output path must point to the compiled SSR entry, for example `dist/ssr-entry.js`.
+
+### 3. Start the SSR Server
 
 ```sh
 inertia-node-ssr --entry dist/ssr-entry.js --host 127.0.0.1 --port 13714
 ```
 
-### 3) Consume from adapter layer
-
-Configure your adapter with SSR options:
+### 4. Enable SSR in an Adapter
 
 ```ts
 inertiaMiddleware({
   ssr: {
     enabled: true,
     url: "http://127.0.0.1:13714/render",
+    timeoutMs: 1500,
   },
 });
 ```
 
-## Response contract
-
-`render(page)` must return:
-
-- `head` string
-- `body` string
-
-or an object shaped as `SsrResult` from `@inertia-node/core`.
-
 ## CLI
 
-- `inertia-node-ssr --entry <path> --host <host> --port <port>`
-- defaults:
-  - host: `127.0.0.1`
-  - port: `13714`
+```sh
+inertia-node-ssr --entry <path> [--host 127.0.0.1] [--port 13714]
+```
 
-## Notes
+Arguments:
 
-- `entry` can be a `file:` URL or a local path.
-- Renderer modules can export:
-  - `default` function
-  - `render` function
-- The module import is cache-busted with a timestamp query to support hot updates in dev-like flows.
+- `--entry`: required path to the compiled renderer module.
+- `--host`: optional host, defaults to `127.0.0.1`.
+- `--port`: optional port, defaults to `13714`.
 
-## Related docs
+## Programmatic API
 
-- https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/ssr.md
-- https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/deployment.md
+```ts
+import { createSsrServer, listen, loadRenderer } from "@inertia-node/ssr";
+
+const render = await loadRenderer("dist/ssr-entry.js");
+const result = await render(page);
+
+const server = await createSsrServer({
+  entry: "dist/ssr-entry.js",
+  host: "127.0.0.1",
+  port: 13714,
+});
+
+await listen({
+  entry: "dist/ssr-entry.js",
+  host: "127.0.0.1",
+  port: 13714,
+});
+```
+
+## HTTP Contract
+
+The server accepts only:
+
+```txt
+POST /render
+```
+
+The request body must be an Inertia page object:
+
+```json
+{
+  "component": "Dashboard/Index",
+  "props": {
+    "user": {
+      "name": "Ada"
+    }
+  },
+  "url": "/dashboard",
+  "version": "1"
+}
+```
+
+The response must be compatible with `SsrResult`:
+
+```json
+{
+  "head": "<title>Dashboard</title>",
+  "body": "<div>...</div>"
+}
+```
+
+## Renderer Exports
+
+Renderer modules can export either:
+
+```ts
+export default async function render(page) {
+  return {
+    head: "",
+    body: "",
+  };
+}
+```
+
+or:
+
+```ts
+export async function render(page) {
+  return {
+    head: "",
+    body: "",
+  };
+}
+```
+
+## Debugging SSR
+
+Test the SSR server directly:
+
+```sh
+curl -X POST http://127.0.0.1:13714/render \
+  -H "Content-Type: application/json" \
+  -d '{"component":"Dashboard/Index","props":{},"url":"/dashboard","version":"1"}'
+```
+
+If SSR is working, the response should contain rendered `head` and `body` strings.
+
+While debugging an adapter integration, set:
+
+```ts
+ssr: {
+  enabled: true,
+  throwOnError: true,
+}
+```
+
+This makes SSR failures visible instead of silently falling back to the client-side shell.
+
+## Exports
+
+- `loadRenderer(entry)`
+- `createSsrServer(options)`
+- `listen(options)`
+- `SsrRenderFunction`
+- `SsrServerOptions`
+
+## Documentation
+
+- Repository: https://github.com/inertia-node/inertia-node-adapter
+- SSR docs: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/ssr.md
+- Deployment docs: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/deployment.md

@@ -1,27 +1,41 @@
 # @inertia-node/express
 
-Production-ready Express middleware and helpers for Inertia.js in Node.js.
+Express adapter for Inertia.js on Node.js.
 
-The adapter wires Inertia protocol requests and response helpers directly onto
-`Express.Request` / `Express.Response`, and provides:
+`@inertia-node/express` adds Inertia response helpers to Express applications. It uses `@inertia-node/core` internally, then adapts the protocol to normal Express middleware, request objects, response objects, redirects, sessions, flash data, validation errors, and authentication flows.
 
-- request detection + protocol response creation
-- flash data and error persistence via a tiny session adapter contract
-- auth helpers for route guards and serialized user sharing
-- lazy/partial prop helpers re-exported from `@inertia-node/core`
+## Features
 
-## Install
+- Adds `res.inertia(...)` for rendering Inertia pages.
+- Adds `res.inertiaRedirect(...)` and `res.inertiaLocation(...)` for protocol-aware redirects.
+- Adds `res.backWithErrors(...)` for validation error redirects.
+- Adds `req.flash(...)` for temporary flash state.
+- Supports auth guards through `requireAuth(...)` and `guestOnly(...)`.
+- Supports shared props, partial reloads, lazy props, deferred props, merge props, and SSR.
+- Re-exports useful helpers from `@inertia-node/core`.
+
+## Installation
 
 ```sh
-pnpm add @inertia-node/express @inertiajs/react express-session
+pnpm add @inertia-node/express express express-session
+```
+
+```sh
+npm install @inertia-node/express express express-session
 ```
 
 Peer dependencies:
 
-- `express ^4.18 || ^5`
+- `express >=4.18 <6`
 - `express-session >=1.17 <2`
 
-## Quick start
+Install your Inertia client separately, for example:
+
+```sh
+pnpm add @inertiajs/react react react-dom
+```
+
+## Quick Start
 
 ```ts
 import express from "express";
@@ -37,9 +51,9 @@ const app = express();
 
 app.use(
   session({
-    secret: "replace-me",
-    saveUninitialized: false,
+    secret: process.env.SESSION_SECRET ?? "replace-me",
     resave: false,
+    saveUninitialized: false,
   }),
 );
 
@@ -55,12 +69,22 @@ app.use(
       logout: async (req) => {
         delete req.session.user;
       },
-      serializeUser: (user) => ({ id: user.id, name: user.name }),
+      serializeUser: (user) => ({
+        id: user.id,
+        name: user.name,
+      }),
+      redirectTo: "/login",
+      home: "/dashboard",
+    }),
+    share: async ({ request }) => ({
+      appName: "Inertia Node",
+      locale: request.headers["accept-language"] ?? "en",
     }),
     rootView: ({ page }) => `
 <!doctype html>
 <html>
   <head>
+    <meta charset="utf-8" />
     <script type="module" src="/src/app.tsx"></script>
   </head>
   <body>
@@ -70,36 +94,69 @@ app.use(
   }),
 );
 
-app.get("/dashboard", requireAuth("/login"), async (_req, res) => {
-  return res.inertia("Dashboard/Index", {
-    stats: ["users", "orders", "uptime"],
+app.get("/dashboard", requireAuth(), async (_req, res) => {
+  await res.inertia("Dashboard/Index", {
+    stats: {
+      users: 42,
+      orders: 128,
+    },
   });
+});
+
+app.post("/profile", async (_req, res) => {
+  await res.backWithErrors({
+    name: ["The name field is required."],
+  });
+});
+
+app.listen(3000);
+```
+
+## Middleware API
+
+### `inertiaMiddleware(options)`
+
+Registers the Inertia runtime and attaches helpers to `req` and `res`.
+
+Important options:
+
+- `version`: asset version string or resolver.
+- `rootView`: HTML shell renderer.
+- `share`: shared props for every page.
+- `session`: session adapter factory.
+- `auth`: auth runtime configuration.
+- `ssr`: server-side rendering endpoint configuration.
+- `withAllErrors`: preserves all validation messages instead of the first message per field.
+
+### Response Helpers
+
+```ts
+await res.inertia("Users/Index", {
+  users: await loadUsers(),
+});
+
+res.inertiaRedirect("/dashboard");
+
+res.inertiaLocation("https://example.com/external");
+
+await res.backWithErrors({
+  email: ["Email is required."],
 });
 ```
 
-## Middleware behavior
+### Auth Helpers
 
-`inertiaMiddleware(options)` returns a standard `RequestHandler`.
+```ts
+app.get("/dashboard", requireAuth("/login"), dashboardHandler);
+app.get("/login", guestOnly("/dashboard"), loginHandler);
+```
 
-It mutates:
+- `requireAuth(redirectTo = "/login")` redirects unauthenticated users.
+- `guestOnly(home = "/dashboard")` redirects authenticated users away from guest-only pages.
 
-- `req.flash(key, value)` for storing temporary flash state
-- `req.user` and `req.auth` if `auth` is configured
-- `res.inertia(component, props, renderOptions)`
-- `res.inertiaRedirect(location, status?)`
-- `res.inertiaLocation(location)`
-- `res.backWithErrors(errors, options?)`
+## Sessions, Flash, and Validation
 
-### Authentication helpers
-
-- `requireAuth(redirectTo = "/login")`  
-  Redirects unauthenticated requests to `redirectTo`.
-- `guestOnly(home = "/dashboard")`  
-  Redirects authenticated users to a home/dashboard route.
-
-## Session contract
-
-`SessionStore` adapter keys:
+`expressSessionAdapter()` maps `express-session` to the shared `SessionStore` contract:
 
 - `get(key)`
 - `set(key, value)`
@@ -107,17 +164,25 @@ It mutates:
 - `flash(key, value)`
 - `reflash()`
 
-The included `expressSessionAdapter()` maps Express session values to this contract.
+Validation errors are stored in session and shared as Inertia `errors` props. Flash values are pulled once and shared as `flash` props.
 
-## Validation and errors
+## SSR
 
-`res.backWithErrors(errors, options)` stores errors and redirects:
+Enable SSR by pointing the adapter to an SSR endpoint:
 
-- with `x-inertia-error-bag` header, it respects bag scoping
-- with `withAllErrors: true`, multi-value arrays are preserved
-- without it, first message per field is used by default
+```ts
+app.use(
+  inertiaMiddleware({
+    ssr: {
+      enabled: true,
+      url: "http://127.0.0.1:13714/render",
+      timeoutMs: 1500,
+    },
+  }),
+);
+```
 
-`errors` format is `{ [field]: string | string[] }`.
+Use `@inertia-node/ssr` to run the standalone renderer.
 
 ## Exports
 
@@ -125,17 +190,22 @@ The included `expressSessionAdapter()` maps Express session values to this contr
 - `expressSessionAdapter`
 - `requireAuth`
 - `guestOnly`
-- plus all shared helpers from `@inertia-node/core`:
-  - `createInertia`, `always`, `defer`, `merge`, `optional`, `validationError`, `inertiaAuth`
+- `AuthenticatedRequest`
+- `ExpressInertiaOptions`
+- `ExpressRenderOptions`
+- Re-exported core helpers such as `always`, `defer`, `merge`, `optional`, `validationError`, `inertiaAuth`, and `createInertia`
 
 ## Troubleshooting
 
-- Empty protocol body is often caused by calling `res.inertia(...)` after the response was already sent.
-- If headers are missing, confirm the request is sent with `X-Inertia` and `X-Inertia-Version`.
-- For auth routes, apply `req.session` middleware before `inertiaMiddleware`.
+- If auth data is always missing, make sure `express-session` runs before `inertiaMiddleware`.
+- If `res.backWithErrors(...)` throws, make sure a session adapter is configured.
+- If full page loads return JSON, check that the browser request is not sending `X-Inertia`.
+- If SSR does not appear in the HTML source, confirm that the SSR server is reachable and that `ssr.enabled` is true.
 
-## Related docs
+## Documentation
 
-- https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/quickstart.md
-- https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/session-flash-validation.md
-- https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/auth.md
+- Repository: https://github.com/inertia-node/inertia-node-adapter
+- Quick start: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/quickstart.md
+- Auth: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/auth.md
+- Sessions, flash, and validation: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/session-flash-validation.md
+- SSR: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/ssr.md
