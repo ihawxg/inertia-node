@@ -1,6 +1,6 @@
 {
   "name": "@inertia-node/core",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Framework-agnostic Inertia.js v3 protocol helpers for Node.js.",
   "license": "MIT",
   "author": "Inertia Node Adapter contributors",

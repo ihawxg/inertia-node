@@ -1,6 +1,6 @@
 {
   "name": "@inertia-node/ssr",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Standalone SSR server for Inertia Node adapters.",
   "license": "MIT",
   "author": "Inertia Node Adapter contributors",

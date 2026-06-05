@@ -1,6 +1,6 @@
 {
   "name": "@inertia-node/nest",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "NestJS adapter for Inertia.js on Node.js.",
   "license": "MIT",
   "author": "Inertia Node Adapter contributors",
