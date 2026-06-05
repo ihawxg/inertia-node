@@ -2,6 +2,7 @@
   "name": "@inertia-node/create",
   "version": "0.1.0",
   "description": "Starter-kit generator for full-stack Inertia Node applications.",
+  "private": true,
   "license": "MIT",
   "author": "Inertia Node Adapter contributors",
   "type": "module",
