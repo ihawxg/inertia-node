@@ -1,4 +1,4 @@
-import { mkdir, readdir, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
@@ -14,11 +14,19 @@ const packages = [
 ];
 const outDir = join(tmpdir(), "inertia-node-pack-check");
 const appDir = join(outDir, "consumer");
+const packageTarballs = new Map();
 
 await rm(outDir, { recursive: true, force: true });
 await mkdir(outDir, { recursive: true });
 
 for (const packagePath of packages) {
+  const manifest = JSON.parse(
+    await readFile(join(root, packagePath, "package.json"), "utf8"),
+  );
+  const tarballName = `${manifest.name.replace("@", "").replace("/", "-")}-${manifest.version}.tgz`;
+
+  packageTarballs.set(manifest.name, `file:${join(outDir, tarballName)}`);
+
   const result = spawnSync(
     "pnpm",
     ["--dir", join(root, packagePath), "pack", "--pack-destination", outDir],
@@ -47,12 +55,14 @@ await writeFile(
       private: true,
       type: "module",
       dependencies: {
-        "@inertia-node/core": `file:${join(outDir, "inertia-node-core-0.1.0.tgz")}`,
-        "@inertia-node/express": `file:${join(outDir, "inertia-node-express-0.1.0.tgz")}`,
-        "@inertia-node/nest": `file:${join(outDir, "inertia-node-nest-0.1.0.tgz")}`,
-        "@inertia-node/nest-fastify": `file:${join(outDir, "inertia-node-nest-fastify-0.1.0.tgz")}`,
-        "@inertia-node/ssr": `file:${join(outDir, "inertia-node-ssr-0.1.0.tgz")}`,
-        "@inertia-node/create": `file:${join(outDir, "inertia-node-create-0.1.0.tgz")}`,
+        "@inertia-node/core": packageTarballs.get("@inertia-node/core"),
+        "@inertia-node/express": packageTarballs.get("@inertia-node/express"),
+        "@inertia-node/nest": packageTarballs.get("@inertia-node/nest"),
+        "@inertia-node/nest-fastify": packageTarballs.get(
+          "@inertia-node/nest-fastify",
+        ),
+        "@inertia-node/ssr": packageTarballs.get("@inertia-node/ssr"),
+        "@inertia-node/create": packageTarballs.get("@inertia-node/create"),
         "@fastify/cookie": "^11.0.2",
         "@fastify/session": "^11.1.1",
         "@nestjs/common": "^11.1.9",
@@ -72,12 +82,14 @@ await writeFile(
       },
       pnpm: {
         overrides: {
-          "@inertia-node/core": `file:${join(outDir, "inertia-node-core-0.1.0.tgz")}`,
-          "@inertia-node/express": `file:${join(outDir, "inertia-node-express-0.1.0.tgz")}`,
-          "@inertia-node/nest": `file:${join(outDir, "inertia-node-nest-0.1.0.tgz")}`,
-          "@inertia-node/nest-fastify": `file:${join(outDir, "inertia-node-nest-fastify-0.1.0.tgz")}`,
-          "@inertia-node/ssr": `file:${join(outDir, "inertia-node-ssr-0.1.0.tgz")}`,
-          "@inertia-node/create": `file:${join(outDir, "inertia-node-create-0.1.0.tgz")}`,
+          "@inertia-node/core": packageTarballs.get("@inertia-node/core"),
+          "@inertia-node/express": packageTarballs.get("@inertia-node/express"),
+          "@inertia-node/nest": packageTarballs.get("@inertia-node/nest"),
+          "@inertia-node/nest-fastify": packageTarballs.get(
+            "@inertia-node/nest-fastify",
+          ),
+          "@inertia-node/ssr": packageTarballs.get("@inertia-node/ssr"),
+          "@inertia-node/create": packageTarballs.get("@inertia-node/create"),
         },
       },
     },
