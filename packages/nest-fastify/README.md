@@ -48,10 +48,12 @@ import {
 <html>
   <body><div id="app" data-page='${page}'></div></body>
 </html>`,
-  auth: inertiaAuth({
+      auth: inertiaAuth({
         async getUser(req) {
           const userId = req.session?.get("userId");
-          return userId ? { id: userId, name: "Ada", email: "ada@example.com" } : null;
+          return userId
+            ? { id: userId, name: "Ada", email: "ada@example.com" }
+            : null;
         },
         login: (req, user) => req.session.set("userId", user.id),
         logout: (req) => req.session.set("userId", null),

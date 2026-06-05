@@ -62,15 +62,36 @@ const protocolPage: InertiaPage = {
   sharedProps: ["flash", "errors"],
 };
 
+async function loadProfile(userId: number) {
+  return { id: userId, name: "Ada Lovelace" };
+}
+
+function resolveHeavyStats() {
+  return {
+    users: 12,
+    orders: 39,
+  };
+}
+
+function loadLazyData() {
+  return {
+    revenue: 1234,
+  };
+}
+
 const userId = 7;
 
 const pageProps = {
   profile: merge(() => loadProfile(userId)),
   stats: always(resolveHeavyStats()), // always resolved before serializing
-  lazy: defer(() => loadLazyData()),   // deferred and loaded client-side
+  lazy: defer(() => loadLazyData()), // deferred and loaded client-side
 };
 
-const protocolResponse = await app.render(request, protocolPage.component, pageProps);
+const protocolResponse = await app.render(
+  request,
+  protocolPage.component,
+  pageProps,
+);
 
 if (protocolResponse.status === 200) {
   console.log("rendered protocol payload:", protocolResponse.body);
