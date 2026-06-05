@@ -1,6 +1,6 @@
 {
   "name": "@inertia-node/express",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Express adapter for Inertia.js on Node.js.",
   "license": "MIT",
   "author": "Inertia Node Adapter contributors",
