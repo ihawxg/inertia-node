@@ -73,4 +73,6 @@ createInertiaApp({
 - Express: `>=4.18 <6`
 - Express session: `>=1.17 <2`
 - NestJS: `>=10 <12` on the Express platform
+- NestJS Fastify: `>=10 <12` on the Fastify platform
+- Fastify sessions: `@fastify/cookie` + `@fastify/session`
 - Inertia client packages: v3

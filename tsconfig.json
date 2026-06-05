@@ -6,6 +6,7 @@
       "@inertia-node/core": ["./packages/core/src/index.ts"],
       "@inertia-node/express": ["./packages/express/src/index.ts"],
       "@inertia-node/nest": ["./packages/nest/src/index.ts"],
+      "@inertia-node/nest-fastify": ["./packages/nest-fastify/src/index.ts"],
       "@inertia-node/create": ["./packages/create/src/index.ts"]
     }
   },

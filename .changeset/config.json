@@ -9,5 +9,10 @@
   "access": "public",
   "baseBranch": "main",
   "updateInternalDependencies": "patch",
-  "ignore": ["@inertia-node/example-express-react"]
+  "ignore": [
+    "@inertia-node/create",
+    "@inertia-node/example-express-react",
+    "@inertia-node/example-nest-react",
+    "@inertia-node/example-nest-fastify-react"
+  ]
 }

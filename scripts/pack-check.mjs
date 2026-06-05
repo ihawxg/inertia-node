@@ -8,6 +8,7 @@ const packages = [
   "packages/core",
   "packages/express",
   "packages/nest",
+  "packages/nest-fastify",
   "packages/ssr",
   "packages/create",
 ];
@@ -49,12 +50,17 @@ await writeFile(
         "@inertia-node/core": `file:${join(outDir, "inertia-node-core-0.1.0.tgz")}`,
         "@inertia-node/express": `file:${join(outDir, "inertia-node-express-0.1.0.tgz")}`,
         "@inertia-node/nest": `file:${join(outDir, "inertia-node-nest-0.1.0.tgz")}`,
+        "@inertia-node/nest-fastify": `file:${join(outDir, "inertia-node-nest-fastify-0.1.0.tgz")}`,
         "@inertia-node/ssr": `file:${join(outDir, "inertia-node-ssr-0.1.0.tgz")}`,
         "@inertia-node/create": `file:${join(outDir, "inertia-node-create-0.1.0.tgz")}`,
+        "@fastify/cookie": "^11.0.2",
+        "@fastify/session": "^11.1.1",
         "@nestjs/common": "^11.1.9",
         "@nestjs/core": "^11.1.9",
+        "@nestjs/platform-fastify": "^11.1.9",
         express: "^5.2.1",
         "express-session": "^1.18.2",
+        fastify: "^5.6.2",
         "reflect-metadata": "^0.2.2",
         rxjs: "^7.8.2",
       },
@@ -69,6 +75,7 @@ await writeFile(
           "@inertia-node/core": `file:${join(outDir, "inertia-node-core-0.1.0.tgz")}`,
           "@inertia-node/express": `file:${join(outDir, "inertia-node-express-0.1.0.tgz")}`,
           "@inertia-node/nest": `file:${join(outDir, "inertia-node-nest-0.1.0.tgz")}`,
+          "@inertia-node/nest-fastify": `file:${join(outDir, "inertia-node-nest-fastify-0.1.0.tgz")}`,
           "@inertia-node/ssr": `file:${join(outDir, "inertia-node-ssr-0.1.0.tgz")}`,
           "@inertia-node/create": `file:${join(outDir, "inertia-node-create-0.1.0.tgz")}`,
         },
@@ -102,6 +109,7 @@ import session from "express-session";
 import { createInertia, defer } from "@inertia-node/core";
 import { expressSessionAdapter, inertiaMiddleware } from "@inertia-node/express";
 import { Inertia, InertiaModule, nestExpressSessionAdapter } from "@inertia-node/nest";
+import { Inertia as FastifyInertia, InertiaModule as FastifyInertiaModule, fastifySessionAdapter } from "@inertia-node/nest-fastify";
 import { createSsrServer } from "@inertia-node/ssr";
 import { resolveCreateAppConfig } from "@inertia-node/create";
 
@@ -111,7 +119,9 @@ app.use(inertiaMiddleware({ session: expressSessionAdapter() }));
 app.get("/", (_req, res) => void res.inertia("Home", { stats: defer(() => ({ users: 1 })) }));
 await createInertia().render({ headers: {}, method: "GET", url: "/" }, "Home");
 InertiaModule.forRoot({ session: nestExpressSessionAdapter() });
+FastifyInertiaModule.forRoot({ session: fastifySessionAdapter() });
 void Inertia.render("Home");
+void FastifyInertia.render("Home");
 void createSsrServer;
 void resolveCreateAppConfig({ name: "consumer", dryRun: true });
 `,

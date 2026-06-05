@@ -9,13 +9,15 @@ This repository starts with:
 - `@inertia-node/core`: framework-agnostic Inertia v3 protocol helpers.
 - `@inertia-node/express`: Express middleware and response helpers.
 - `@inertia-node/nest`: NestJS module, interceptor, decorators, and guards for the Express platform.
+- `@inertia-node/nest-fastify`: NestJS module, interceptor, decorators, and guards for the Fastify platform.
 - `@inertia-node/ssr`: standalone SSR server for separate-process rendering.
 - `examples/express-react`: minimal Express + React + Vite example.
 - `examples/nest-react`: NestJS + React + Vite example with sessions and auth.
+- `examples/nest-fastify-react`: NestJS Fastify + React + Vite example with sessions and auth.
 
 ## Status
 
-Early MVP. The current goal is Laravel-like Inertia ergonomics for Node.js while keeping auth, database, and routing choices in application code. Express and NestJS on the Express platform are supported first; Fastify adapters are planned next.
+Early MVP. The current goal is Laravel-like Inertia ergonomics for Node.js while keeping auth, database, and routing choices in application code. Express, NestJS on Express, and NestJS on Fastify are supported first; a standalone Fastify adapter is planned next.
 
 ## Install
 
@@ -153,6 +155,56 @@ class DashboardController {
 export class AppModule {}
 ```
 
+## NestJS Fastify Usage
+
+```ts
+import {
+  Controller,
+  Get,
+  Module,
+  UseGuards,
+  UseInterceptors,
+} from "@nestjs/common";
+import { FastifyAdapter } from "@nestjs/platform-fastify";
+import { NestFactory } from "@nestjs/core";
+import {
+  fastifySessionAdapter,
+  Inertia,
+  inertiaAuth,
+  InertiaAuthGuard,
+  InertiaInterceptor,
+  InertiaModule,
+} from "@inertia-node/nest-fastify";
+
+@Controller()
+@UseInterceptors(InertiaInterceptor)
+class DashboardController {
+  @Get("/dashboard")
+  @UseGuards(InertiaAuthGuard)
+  @Inertia("Dashboard/Index")
+  index() {
+    return { users: [{ id: 1, name: "Ada Lovelace" }] };
+  }
+}
+
+@Module({
+  imports: [
+    InertiaModule.forRoot({
+      session: fastifySessionAdapter(),
+      auth: inertiaAuth({
+        getUser: (req) => getUser(req.session.get("userId")),
+        login: (req, user) => req.session.set("userId", user.id),
+        logout: (req) => req.session.set("userId", undefined),
+      }),
+    }),
+  ],
+  controllers: [DashboardController],
+})
+class AppModule {}
+
+await NestFactory.create(AppModule, new FastifyAdapter());
+```
+
 ## SSR
 
 Create an SSR entry that exports a render function returning `{ head, body }`, then run:
@@ -182,6 +234,7 @@ pnpm test
 pnpm build
 pnpm dev:example
 pnpm dev:example:nest
+pnpm dev:example:nest-fastify
 ```
 
 ## Docs
@@ -205,3 +258,5 @@ Targets the Inertia v3 protocol and official `@inertiajs/*` client packages. His
 - Express: `>=4.18 <6`
 - Express session: `>=1.17 <2`
 - NestJS: `>=10 <12` on the Express platform
+- NestJS Fastify: `>=10 <12` on the Fastify platform
+- Fastify sessions: `@fastify/cookie` + `@fastify/session`
