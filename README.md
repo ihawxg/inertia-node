@@ -1,6 +1,6 @@
 # Inertia Node Adapter
 
-[![CI](https://github.com/inertia-node/inertia-node-adapter/actions/workflows/ci.yml/badge.svg)](https://github.com/inertia-node/inertia-node-adapter/actions/workflows/ci.yml)
+[![CI](https://github.com/ihawxg/inertia-node/actions/workflows/ci.yml/badge.svg)](https://github.com/ihawxg/inertia-node/actions/workflows/ci.yml)
 
 TypeScript server adapters for using the official Inertia.js client packages with Node.js backends.
 

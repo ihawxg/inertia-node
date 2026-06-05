@@ -8,12 +8,12 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/inertia-node/inertia-node-adapter.git",
+    "url": "https://github.com/ihawxg/inertia-node.git",
     "directory": "packages/create"
   },
-  "homepage": "https://github.com/inertia-node/inertia-node-adapter#readme",
+  "homepage": "https://github.com/ihawxg/inertia-node#readme",
   "bugs": {
-    "url": "https://github.com/inertia-node/inertia-node-adapter/issues"
+    "url": "https://github.com/ihawxg/inertia-node/issues"
   },
   "keywords": [
     "inertia",

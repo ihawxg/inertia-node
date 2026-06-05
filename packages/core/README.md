@@ -211,8 +211,8 @@ Common types:
 
 ## Documentation
 
-- Repository: https://github.com/inertia-node/inertia-node-adapter
-- Quick start: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/quickstart.md
-- Auth: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/auth.md
-- Sessions, flash, and validation: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/session-flash-validation.md
-- SSR: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/ssr.md
+- Repository: https://github.com/ihawxg/inertia-node
+- Quick start: https://github.com/ihawxg/inertia-node/blob/main/docs/quickstart.md
+- Auth: https://github.com/ihawxg/inertia-node/blob/main/docs/auth.md
+- Sessions, flash, and validation: https://github.com/ihawxg/inertia-node/blob/main/docs/session-flash-validation.md
+- SSR: https://github.com/ihawxg/inertia-node/blob/main/docs/ssr.md

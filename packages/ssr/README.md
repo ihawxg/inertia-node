@@ -206,6 +206,6 @@ This makes SSR failures visible instead of silently falling back to the client-s
 
 ## Documentation
 
-- Repository: https://github.com/inertia-node/inertia-node-adapter
-- SSR docs: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/ssr.md
-- Deployment docs: https://github.com/inertia-node/inertia-node-adapter/blob/main/docs/deployment.md
+- Repository: https://github.com/ihawxg/inertia-node
+- SSR docs: https://github.com/ihawxg/inertia-node/blob/main/docs/ssr.md
+- Deployment docs: https://github.com/ihawxg/inertia-node/blob/main/docs/deployment.md
